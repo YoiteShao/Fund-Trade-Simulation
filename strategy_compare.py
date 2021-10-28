@@ -5,11 +5,9 @@ import urllib.request
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
-
+import matplotlib.ticker as ticker
 from bs4 import BeautifulSoup
 from datetime import datetime
-
-
 
 
 class fund_script():
@@ -117,7 +115,7 @@ class fund_script():
         month = int(self.end[5:7]) - int(self.start[5:7])
         return years * 12 + month
 
-    def rate_strategy(self, invest_rate, stop_rate):
+    def rate_strategy(self, invest_rate, stop_rate, record=False, draw=False):
         """
         Rate strategy:
         Set init Psychological value when you buy at first, continue buy it when the value fall down more than the rate
@@ -132,7 +130,8 @@ class fund_script():
         buy_count = math.floor(single_money / curr_price)
         fund_counts = [buy_count]
         cash -= curr_price * buy_count
-
+        # Init buy&sell record
+        buy_record_y, buy_record_x, sell_record_y, sell_record_x = [], [], [], []
         #   each time to buy
         for i in self.fund_dock.index[::-1]:
             # today price
@@ -142,11 +141,16 @@ class fund_script():
             value = sum(fund_counts) * today_price
             # all single money
             all_money = single_money * sum(1 for x in fund_counts if x > 0)
-            print(self.fund_dock.loc[i]['date'], " original price:", curr_price, " today price:", today_price,
-                  " profit: ", (value - all_money) / all_money)
+            if record:
+                print(self.fund_dock.loc[i]['date'], " ||original price:", curr_price, " ||today price:", today_price,
+                      "||yesterday trade", fund_counts[-1],
+                      " ||profit: ", (value - all_money) / all_money)
             # check stop and add to cash
             sell_count = self.stop_strategy(cash, fund_counts, today_price, stop_rate)
             fund_counts.append(-sell_count)
+            if sell_count > 0:
+                sell_record_y.append(today_price)
+                sell_record_x.append(self.fund_dock.loc[i]['date'])
             cash += sell_count * today_price
 
             # If fall
@@ -162,19 +166,24 @@ class fund_script():
 
                     cash -= buy_count * today_price
                     curr_price = today_price
-                    print("   buy:", today_price, " count:", buy_count)
+                    buy_record_y.append(today_price)
+                    buy_record_x.append(self.fund_dock.loc[i]['date'])
+                    if record:
+                        print("   buy:", today_price, " count:", buy_count)
 
             else:
                 #   If rise too high , change current price
-                if (today_price - curr_price) / curr_price >= invest_rate * 1.5:
+                if (today_price - curr_price) / curr_price >= invest_rate * 2.5:
                     curr_price = today_price
 
         print("****rate_strategy****")
         print("buy times: ", sum(1 for x in fund_counts if x > 0))
         print("sell times: ", sum(1 for x in fund_counts if x < 0))
         print("Final value: ", cash + sum(fund_counts) * self.end_unit_gain)
+        if draw:
+            self.draw(buy_record_y, buy_record_x, sell_record_y, sell_record_x, "****rate_strategy****")
 
-    def week_strategy(self, days_array, stop_rate):
+    def week_strategy(self, days_array, stop_rate, record=False, draw=False):
         """
         invest once a week at Monday\Tuesday...
         :param days_array: week
@@ -183,7 +192,9 @@ class fund_script():
         cash = self.cash
         #   Invest the principal in batches on a monthly basis
         single_money = cash // (months * 4)
-        fund_counts = []
+        fund_counts = [0]
+        # Init buy&sell record
+        buy_record_y, buy_record_x, sell_record_y, sell_record_x = [], [], [], []
         #   Buy once a week at specific day
         for i in self.fund_dock.index[::-1]:
             # today price
@@ -191,23 +202,35 @@ class fund_script():
             # today all value
             value = sum(fund_counts) * today_price
             # all single money
-            all_money = single_money * sum(1 for x in fund_counts if x > 0)
-            print(self.fund_dock.loc[i]['date'], " today price:", today_price,
-                  " profit: ", (value - all_money) / all_money)
+            all_money = single_money * sum(1 for x in fund_counts if x > 0) + 1e-10
+            if record:
+                print(self.fund_dock.loc[i]['date'], " ||today price:", today_price, " ||yesterday trade",
+                      fund_counts[-1],
+                      " ||profit: ", (value - all_money) / all_money)
             # check stop
             sell_count = self.stop_strategy(cash, fund_counts, today_price, stop_rate)
             fund_counts.append(-sell_count)
+            if sell_count > 0:
+                sell_record_y.append(today_price)
+                sell_record_x.append(self.fund_dock.loc[i]['date'])
             cash += sell_count * today_price
             #   If today is the day, buy and reduce money
             if self.date_check(self.fund_dock.loc[i]['date'], days_array):
                 buy_count = math.floor(single_money / self.fund_dock.loc[i]['unit_gain'])
                 fund_counts.append(buy_count)
                 cash -= buy_count * today_price
+                if record:
+                    print("   buy:", today_price, " count:", buy_count)
+                buy_record_y.append(today_price)
+                buy_record_x.append(self.fund_dock.loc[i]['date'])
 
         print("****week_strategy****")
         print("buy times: ", sum(1 for x in fund_counts if x > 0))
         print("sell times: ", sum(1 for x in fund_counts if x < 0))
         print("Final value: ", cash + sum(fund_counts) * self.end_unit_gain)
+
+        if draw:
+            self.draw(buy_record_y, buy_record_x, sell_record_y, sell_record_x, "****week_strategy****")
 
     def stop_strategy(self, all_money, fund_counts, today_price, stop_rate):
         """
@@ -232,12 +255,27 @@ class fund_script():
         else:
             return 0
 
-    def draw(self):
-        pass
+    def draw(self, buy_record_y=[], buy_record_x=[], sell_record_y=[], sell_record_x=[], title=""):
+        font1 = {'family': 'Times New Roman', 'weight': 'normal', 'size': 10}
+        plt.ylabel("Average NAV", font1)  # 设置纵轴单位
+        y = self.fund_dock['unit_gain'][::-1]
+        x = self.fund_dock['date'][::-1]
+        plt.title(title)
+        plt.plot(x, y, color='blue',alpha=0.5)
+        plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(31))
+        plt.xticks(rotation=60)
+        plt.scatter(sell_record_x, sell_record_y, marker='o', color='red', edgecolors='red', s=15, clip_on=False,
+                    label='Sell')
+        plt.scatter(buy_record_x, buy_record_y, marker='o', color='forestgreen', edgecolors='forestgreen', s=15,
+                    clip_on=False, label='Buy')
+        plt.legend(loc='lower right')
+        plt.show()
 
 
 way = fund_script("007301", "2019-07-01", "2021-10-27", 10000)
 context = way.get_dock()
 # pd.set_option('display.max_rows',None)
 print(context)
-way.rate_strategy(0.04, 0.2)
+way.rate_strategy(0.04, 0.2, False, True)
+# way.week_strategy([1, 3, 5], 0.2, False, True)
+# way.draw()

@@ -9,5 +9,6 @@ data = {
 }
 frame = pd.DataFrame(data)
 y = frame['pop']
-x= frame['year']
-# test
+x= frame['state']
+plt.plot(y,x)
+plt.show()
