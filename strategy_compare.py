@@ -1,6 +1,3 @@
-# https://fundf10.eastmoney.com/F10DataApi.aspx?type=lsjz&code=000001&sdate=2018-12-18&edate=2021-10-25&per=20&page=1
-
-
 import urllib.request
 import pandas as pd
 import math
