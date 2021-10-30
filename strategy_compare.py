@@ -2,12 +2,49 @@ import urllib.request
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 from bs4 import BeautifulSoup
 from datetime import datetime
 
 
-class fund_script():
+def stop_strategy(all_single_money, fund_counts, today_price, stop_rate):
+    """
+    Profit stopping strategy
+    When the all invest value amount more than your init value , it can be sold
+    :return: sell count
+    """
+    #   Value of funds currently held
+    invest_value = sum(fund_counts) * today_price
+
+    # If the stop ratio is exceeded, buy a few counts
+    if ((invest_value - all_single_money) / all_single_money) >= stop_rate:
+        sell_count = invest_value // today_price
+        #   If stop point has not been reached last time, sell sell_count * stop_rate
+        if fund_counts[-1] >= 0:
+            # return math.floor(sell_count * stop_rate)
+            return math.floor(sell_count * stop_rate * 1.5)
+        #   If stop point has been reached last time, sell sell_count * (now_profit_rate-stop_rate)
+        else:
+            return math.floor(sell_count * (((invest_value - all_single_money) / all_single_money) - stop_rate))
+    #   else do nothing
+    else:
+        return 0
+
+
+def date_check(date, days):
+    """
+    chose which day to invest
+    :param date: such as 2020-08-07
+    :param days: array , days range
+    :return: bool
+    """
+    week = datetime.strptime(date, "%Y-%m-%d").weekday()
+    for day in days:
+        if week + 1 == day:
+            return True
+    return False
+
+
+class fund_script:
     def __init__(self, code, start, end, cash):
         """
         :param code:    Fund code
@@ -94,22 +131,9 @@ class fund_script():
                 add_gain = float(temp_item[2][21:])
                 try:
                     rate = float(temp_item[3][25:][:-1]) / 100
-                except:
+                except Excepetion:
                     rate = 0
                 self.fund_dock.loc[date] = [date, unit_gain, add_gain, rate]
-
-    def date_check(self, date, days):
-        """
-        chose which day to invest
-        :param date: such as 2020-08-07
-        :param days: array , days range
-        :return: bool
-        """
-        week = datetime.strptime(date, "%Y-%m-%d").weekday()
-        for day in days:
-            if week + 1 == day:
-                return True
-        return False
 
     def get_months(self):
         """
@@ -154,7 +178,7 @@ class fund_script():
             all_single_money = single_money * sum(1 for x in fund_counts if x > 0)
 
             # check stop and add to cash
-            sell_count = self.stop_strategy(all_single_money, fund_counts, today_price, stop_rate)
+            sell_count = stop_strategy(all_single_money, fund_counts, today_price, stop_rate)
             fund_counts.append(-sell_count)
             cash += sell_count * today_price
 
@@ -197,7 +221,7 @@ class fund_script():
                 if (today_price - curr_price) / curr_price >= invest_rate * 2.5:
                     curr_price = today_price
 
-        print("****rate_strategy****")
+        print("****rate_strategy****invest rate:{} stop rate:{}".format(invest_rate, stop_rate))
         print("buy times: ", sum(1 for x in fund_counts if x > 0))
         print("sell times: ", sum(1 for x in fund_counts if x < 0))
         print("Final value: ", cash + sum(fund_counts) * self.end_unit_gain)
@@ -215,7 +239,6 @@ class fund_script():
         :param stop_rate:   Interference stop point
         :param record:      Print daily transaction information
         :param draw:        Draw an investment chart
-        :param draw:
         """
         months = self.get_months()
         cash = self.cash
@@ -241,7 +264,7 @@ class fund_script():
             all_single_money = single_money * sum(1 for x in fund_counts if x > 0) + 1e-10
 
             # check stop and add to cash
-            sell_count = self.stop_strategy(all_single_money, fund_counts, today_price, stop_rate)
+            sell_count = stop_strategy(all_single_money, fund_counts, today_price, stop_rate)
             fund_counts.append(-sell_count)
             cash += sell_count * today_price
 
@@ -258,16 +281,25 @@ class fund_script():
                 sell_record_x.append(self.fund_dock.loc[i]['date'])
 
             #   If today is the day, buy and reduce money
-            if self.date_check(self.fund_dock.loc[i]['date'], days_array):
-                buy_count = math.floor(single_money / self.fund_dock.loc[i]['unit_gain'])
-                fund_counts.append(buy_count)
+            if date_check(self.fund_dock.loc[i]['date'], days_array):
+                buy_count = 0
+                if cash >= single_money:
+                    buy_count = math.floor(single_money / self.fund_dock.loc[i]['unit_gain'])
+                    fund_counts.append(buy_count)
+                elif single_money > cash > 0:
+                    buy_count = math.floor(cash / self.fund_dock.loc[i]['unit_gain'])
+                    fund_counts.append(buy_count)
+                #   Updated cash and preset price
                 cash -= buy_count * today_price
+
                 if record:
                     print("========> Buy", buy_count)
+
+                #   draw part
                 buy_record_y.append(today_price)
                 buy_record_x.append(self.fund_dock.loc[i]['date'])
 
-        print("****week_strategy****")
+        print("****week_strategy****days:{} stop rate: {}".format(days_array, stop_rate))
         print("buy times: ", sum(1 for x in fund_counts if x > 0))
         print("sell times: ", sum(1 for x in fund_counts if x < 0))
         print("Final value: ", cash + sum(fund_counts) * self.end_unit_gain)
@@ -277,28 +309,6 @@ class fund_script():
             self.draw(buy_record_y, buy_record_x, sell_record_y, sell_record_x, "****week_strategy****")
 
         return cash + sum(fund_counts) * self.end_unit_gain, cash
-
-    def stop_strategy(self, all_single_money, fund_counts, today_price, stop_rate):
-        """
-        Profit stopping strategy
-        When the all invest value amount more than your init value , it can be sold
-        :return: sell count
-        """
-        #   Value of funds currently held
-        invest_value = sum(fund_counts) * today_price
-
-        # If the stop ratio is exceeded, buy a few counts
-        if ((invest_value - all_single_money) / all_single_money) >= stop_rate:
-            sell_count = invest_value // today_price
-            #   If stop point has not been reached last time, sell sell_count * stop_rate
-            if fund_counts[-1] >= 0:
-                return math.floor(sell_count * stop_rate)
-            #   If stop point has been reached last time, sell sell_count * (now_profit_rate-stop_rate)
-            else:
-                return math.floor(sell_count * (((invest_value - all_single_money) / all_single_money) - stop_rate))
-        #   else do nothing
-        else:
-            return 0
 
     def draw(self, buy_record_y=[], buy_record_x=[], sell_record_y=[], sell_record_x=[], title=""):
         font1 = {'family': 'Times New Roman', 'weight': 'normal', 'size': 10}
@@ -317,31 +327,32 @@ class fund_script():
         plt.show()
 
     def FindRateRangeInRateStrategy(self, invest_start, invest_end, invest_step, stop_start, stop_end, stop_step):
-        def crack(integer):
-            start = int(integer ** 0.5)
-            factor = integer / start
+        """
+        Find Rate Range In Rate Strategy include invest start and stop rate
+        """
+
+        def crack(number):
+            start = int(number ** 0.5)
+            factor = number / start
             while not int(factor) == factor:
                 start += 1
-                factor = integer / start
-            return [int(factor), start]
+                factor = number / start
+            return [start, int(factor)]
 
         integer = int(round((stop_end - stop_start) / stop_step, 1) + 1)
         subplots = crack(integer)
-        print("==========================",subplots)
         i = 0
         global_final_value_dock = [[] for _ in range(integer)]
 
         global_final_cash_dock = [[] for _ in range(integer)]
         global_x = [[] for _ in range(integer + 1)]
         global_final_all_dock = [[] for _ in range(integer)]
-
         stop_rate = stop_start
-        while stop_rate <= stop_end:
-
+        plt.figure(dpi=150)
+        while stop_rate <= stop_end + stop_step:
             invest_rate = invest_start
-            while invest_rate <= invest_end:
+            while invest_rate <= invest_end + invest_step:
                 global_x[i].append(invest_rate)
-
                 global_final_value_dock[i].append(self.rate_strategy(invest_rate, stop_rate, False, False)[0])
                 global_final_cash_dock[i].append(self.rate_strategy(invest_rate, stop_rate, False, False)[1])
                 invest_rate += invest_step
@@ -353,22 +364,78 @@ class fund_script():
             plt.plot(global_x[i], global_final_value_dock[i], label='Final Value')
             plt.plot(global_x[i], global_final_cash_dock[i], label='Remain Cash')
             plt.plot(global_x[i], global_final_all_dock[i], label='Total property')
-            plt.legend(loc='lower right',prop={'family':'simsun', 'size': 5})
-            plt.ylabel("Money",fontsize=10)
-            plt.xlabel("Invest Rate",fontsize=10)
-            plt.title("Best Rate Range In Rate Strategy with " + str(stop_rate) + " Stop Rate",fontsize=10)
-
+            plt.legend(loc='best', fontsize=17 - integer)
+            plt.xticks(fontsize=17 - integer)
+            plt.yticks(fontsize=17 - integer)
+            plt.ylabel("Money", fontsize=17 - integer)
+            plt.xlabel("Invest Rate", fontsize=17 - integer)
+            plt.title("Best Rate Range In Rate Strategy with " + str(round(stop_rate, 2)) + " Stop Rate",
+                      fontsize=17 - integer)
+            plt.grid()
             i += 1
             stop_rate += stop_step
         plt.tight_layout()
+
+        plt.show()
+
+    def FindDayRangeInWeekStrategy(self, days_list, stop_start, stop_end, stop_step):
+        """
+        Find Day Range In Week Strategy
+        days_list: All combinations of all fixed investment days
+        """
+
+        def crack(number):
+            start = int(number ** 0.5)
+            factor = number / start
+            while not int(factor) == factor:
+                start += 1
+                factor = number / start
+            return [start, int(factor)]
+
+        integer = int(round((stop_end - stop_start) / stop_step, 1) + 1)
+        subplots = crack(integer)
+        i = 0
+        global_final_value_dock = [[] for _ in range(integer)]
+        global_final_cash_dock = [[] for _ in range(integer)]
+        global_x = [[] for _ in range(integer + 1)]
+        global_final_all_dock = [[] for _ in range(integer)]
+        stop_rate = stop_start
+        plt.figure(dpi=150)
+        while stop_rate <= stop_end + stop_step:
+            for item in days_list:
+                global_x[i].append(str(item))
+                global_final_value_dock[i].append(self.week_strategy(item, stop_rate, False, False)[0])
+                global_final_cash_dock[i].append(self.week_strategy(item, stop_rate, False, False)[1])
+            global_final_all_dock[i] = [f1 + f2 for f1, f2 in
+                                        zip(global_final_value_dock[i], global_final_cash_dock[i])]
+            plt.subplot(subplots[0], subplots[1], i + 1)
+
+            plt.plot(global_x[i], global_final_value_dock[i], label='Final Value')
+            plt.plot(global_x[i], global_final_cash_dock[i], label='Remain Cash')
+            plt.plot(global_x[i], global_final_all_dock[i], label='Total property')
+
+            plt.legend(loc='best', fontsize=17 - integer)
+            plt.xticks(fontsize=17 - integer)
+            plt.yticks(fontsize=17 - integer)
+            plt.ylabel("Money", fontsize=17 - integer)
+            plt.xlabel("Days", fontsize=17 - integer)
+            plt.title("Best Rate Range In Week Strategy with " + str(round(stop_rate, 2)) + " Stop Rate",
+                      fontsize=17 - integer)
+            plt.grid()
+            i += 1
+            stop_rate += stop_step
+        plt.tight_layout()
+
         plt.show()
 
 
 if __name__ == '__main__':
-    way = fund_script("007301", "2019-07-01", "2021-10-27", 10000)
+    way = fund_script("004241", "2019-07-01", "2021-10-27", 10000)
     context = way.get_dock()
     # pd.set_option('display.max_rows',None)
     print(context)
     # way.rate_strategy(0.02, 0.3, False, True)
     # way.week_strategy([1, 3, 5], 0.2, False, True)
-    way.FindRateRangeInRateStrategy(0.01, 0.06, 0.005, 0.2, 0.6, 0.05)
+
+    way.FindDayRangeInWeekStrategy([[1], [2], [3], [4], [5]], 0.18, 0.4, 0.02)
+    way.FindRateRangeInRateStrategy(0.02,0.1,0.01,0.18,0.4,0.02)
