@@ -20,8 +20,8 @@ def stop_strategy(all_single_money, fund_counts, today_price, stop_rate):
         sell_count = invest_value // today_price
         #   If stop point has not been reached last time, sell sell_count * stop_rate
         if fund_counts[-1] >= 0:
-            # return math.floor(sell_count * stop_rate)
-            return math.floor(sell_count * stop_rate * 1.5)
+            return math.floor(sell_count * stop_rate)
+            # return math.floor(sell_count * stop_rate * 2)
         #   If stop point has been reached last time, sell sell_count * (now_profit_rate-stop_rate)
         else:
             return math.floor(sell_count * (((invest_value - all_single_money) / all_single_money) - stop_rate))
@@ -131,7 +131,7 @@ class fund_script:
                 add_gain = float(temp_item[2][21:])
                 try:
                     rate = float(temp_item[3][25:][:-1]) / 100
-                except Excepetion:
+                except ValueError:
                     rate = 0
                 self.fund_dock.loc[date] = [date, unit_gain, add_gain, rate]
 
@@ -220,6 +220,8 @@ class fund_script:
                 #   If rise too high , change preset price
                 if (today_price - curr_price) / curr_price >= invest_rate * 2.5:
                     curr_price = today_price
+            #   Multiplied by the IMF interest rate
+            cash = cash * (1 + 5.5 * 1e-5)
 
         print("****rate_strategy****invest rate:{} stop rate:{}".format(invest_rate, stop_rate))
         print("buy times: ", sum(1 for x in fund_counts if x > 0))
@@ -298,6 +300,8 @@ class fund_script:
                 #   draw part
                 buy_record_y.append(today_price)
                 buy_record_x.append(self.fund_dock.loc[i]['date'])
+            #   Multiplied by the IMF interest rate
+            cash = cash * (1 + 5.5 * 1e-5)
 
         print("****week_strategy****days:{} stop rate: {}".format(days_array, stop_rate))
         print("buy times: ", sum(1 for x in fund_counts if x > 0))
@@ -430,7 +434,7 @@ class fund_script:
 
 
 if __name__ == '__main__':
-    way = fund_script("004241", "2019-07-01", "2021-10-27", 10000)
+    way = fund_script("270042", "2019-07-01", "2021-10-27", 10000)
     context = way.get_dock()
     # pd.set_option('display.max_rows',None)
     print(context)
@@ -438,4 +442,4 @@ if __name__ == '__main__':
     # way.week_strategy([1, 3, 5], 0.2, False, True)
 
     way.FindDayRangeInWeekStrategy([[1], [2], [3], [4], [5]], 0.18, 0.4, 0.02)
-    way.FindRateRangeInRateStrategy(0.02,0.1,0.01,0.18,0.4,0.02)
+    way.FindRateRangeInRateStrategy(0.02, 0.1, 0.01, 0.18, 0.4, 0.02)
