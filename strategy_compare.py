@@ -2,6 +2,7 @@ import urllib.request
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 from bs4 import BeautifulSoup
 from datetime import datetime
 
@@ -20,12 +21,31 @@ def stop_strategy(all_single_money, fund_counts, today_price, stop_rate):
         sell_count = invest_value // today_price
         #   If stop point has not been reached last time, sell sell_count * stop_rate
         if fund_counts[-1] >= 0:
-            return math.floor(sell_count * stop_rate)
-            # return math.floor(sell_count * stop_rate * 2)
+            # return math.floor(sell_count * stop_rate)
+            return math.floor(sell_count * 0.3)
         #   If stop point has been reached last time, sell sell_count * (now_profit_rate-stop_rate)
         else:
-            return math.floor(sell_count * (((invest_value - all_single_money) / all_single_money) - stop_rate))
+            # return math.floor(sell_count * (((invest_value - all_single_money) / all_single_money) - stop_rate))
+            return math.floor(sell_count * (((invest_value - all_single_money) / all_single_money) - 0.3))
     #   else do nothing
+    else:
+        return 0
+
+
+def stop_strategy_enhanced(all_single_money, fund_counts, today_price, stop_rate, yesterday_trend):
+    #   Value of funds currently held
+    invest_value = sum(fund_counts) * today_price
+
+    # If the stop ratio is exceeded, keep watching
+    if ((invest_value - all_single_money) / all_single_money) >= stop_rate:
+        if yesterday_trend >= 0:
+            return 0
+        else:
+            sell_count = invest_value // today_price
+            if fund_counts[-1] >= 0:
+                return math.floor(sell_count * 0.3)
+            else:
+                return math.floor(sell_count * (((invest_value - all_single_money) / all_single_money) - 0.3))
     else:
         return 0
 
@@ -155,14 +175,14 @@ class fund_script:
         cash = self.cash
         #   Single investment amount in batches on a monthly basis
         single_money = cash // months
-
+        print("invest once money:", single_money)
         #   fist day to buy
         curr_price = self.start_unit_gain
         buy_count = math.floor(single_money / curr_price)
         #   invest counts record
         fund_counts = [buy_count]
         cash -= curr_price * buy_count
-
+        yesterday_rate = 0
         # Init buy&sell draw record
         buy_record_y, buy_record_x, sell_record_y, sell_record_x = [], [], [], []
 
@@ -178,7 +198,7 @@ class fund_script:
             all_single_money = single_money * sum(1 for x in fund_counts if x > 0)
 
             # check stop and add to cash
-            sell_count = stop_strategy(all_single_money, fund_counts, today_price, stop_rate)
+            sell_count = stop_strategy_enhanced(all_single_money, fund_counts, today_price, stop_rate, yesterday_rate)
             fund_counts.append(-sell_count)
             cash += sell_count * today_price
 
@@ -222,11 +242,11 @@ class fund_script:
                     curr_price = today_price
             #   Multiplied by the IMF interest rate
             cash = cash * (1 + 5.5 * 1e-5)
-
+            yesterday_rate = self.fund_dock.loc[i]['rate']
         print("****rate_strategy****invest rate:{} stop rate:{}".format(invest_rate, stop_rate))
         print("buy times: ", sum(1 for x in fund_counts if x > 0))
         print("sell times: ", sum(1 for x in fund_counts if x < 0))
-        print("Final value: ", cash + sum(fund_counts) * self.end_unit_gain)
+        print("Final fund value: ", cash + sum(fund_counts) * self.end_unit_gain)
         print("Remaining cash:", cash)
 
         if draw:
@@ -250,7 +270,7 @@ class fund_script:
 
         #   invest counts record
         fund_counts = [0]
-
+        yesterday_rate = 0
         # draw part
         buy_record_y, buy_record_x, sell_record_y, sell_record_x = [], [], [], []
 
@@ -266,7 +286,8 @@ class fund_script:
             all_single_money = single_money * sum(1 for x in fund_counts if x > 0) + 1e-10
 
             # check stop and add to cash
-            sell_count = stop_strategy(all_single_money, fund_counts, today_price, stop_rate)
+            sell_count = stop_strategy_enhanced(all_single_money, fund_counts, today_price, stop_rate, yesterday_rate)
+
             fund_counts.append(-sell_count)
             cash += sell_count * today_price
 
@@ -302,7 +323,7 @@ class fund_script:
                 buy_record_x.append(self.fund_dock.loc[i]['date'])
             #   Multiplied by the IMF interest rate
             cash = cash * (1 + 5.5 * 1e-5)
-
+            yesterday_rate = self.fund_dock.loc[i]['rate']
         print("****week_strategy****days:{} stop rate: {}".format(days_array, stop_rate))
         print("buy times: ", sum(1 for x in fund_counts if x > 0))
         print("sell times: ", sum(1 for x in fund_counts if x < 0))
@@ -350,7 +371,6 @@ class fund_script:
 
         global_final_cash_dock = [[] for _ in range(integer)]
         global_x = [[] for _ in range(integer + 1)]
-        global_final_all_dock = [[] for _ in range(integer)]
         stop_rate = stop_start
         plt.figure(dpi=150)
         while stop_rate <= stop_end + stop_step:
@@ -361,19 +381,16 @@ class fund_script:
                 global_final_cash_dock[i].append(self.rate_strategy(invest_rate, stop_rate, False, False)[1])
                 invest_rate += invest_step
 
-            global_final_all_dock[i] = [f1 + f2 for f1, f2 in
-                                        zip(global_final_value_dock[i], global_final_cash_dock[i])]
             # print("subplots:", subplots[0], subplots[1], i + 1)
             plt.subplot(subplots[0], subplots[1], i + 1)
             plt.plot(global_x[i], global_final_value_dock[i], label='Final Value')
             plt.plot(global_x[i], global_final_cash_dock[i], label='Remain Cash')
-            plt.plot(global_x[i], global_final_all_dock[i], label='Total property')
             plt.legend(loc='best', fontsize=17 - integer)
             plt.xticks(fontsize=17 - integer)
             plt.yticks(fontsize=17 - integer)
             plt.ylabel("Money", fontsize=17 - integer)
             plt.xlabel("Invest Rate", fontsize=17 - integer)
-            plt.title("Best Rate Range In Rate Strategy with " + str(round(stop_rate, 2)) + " Stop Rate",
+            plt.title("Rate Strategy with " + str(round(stop_rate, 2)) + " Stop Rate",
                       fontsize=17 - integer)
             plt.grid()
             i += 1
@@ -402,7 +419,6 @@ class fund_script:
         global_final_value_dock = [[] for _ in range(integer)]
         global_final_cash_dock = [[] for _ in range(integer)]
         global_x = [[] for _ in range(integer + 1)]
-        global_final_all_dock = [[] for _ in range(integer)]
         stop_rate = stop_start
         plt.figure(dpi=150)
         while stop_rate <= stop_end + stop_step:
@@ -410,20 +426,16 @@ class fund_script:
                 global_x[i].append(str(item))
                 global_final_value_dock[i].append(self.week_strategy(item, stop_rate, False, False)[0])
                 global_final_cash_dock[i].append(self.week_strategy(item, stop_rate, False, False)[1])
-            global_final_all_dock[i] = [f1 + f2 for f1, f2 in
-                                        zip(global_final_value_dock[i], global_final_cash_dock[i])]
-            plt.subplot(subplots[0], subplots[1], i + 1)
 
+            plt.subplot(subplots[0], subplots[1], i + 1)
             plt.plot(global_x[i], global_final_value_dock[i], label='Final Value')
             plt.plot(global_x[i], global_final_cash_dock[i], label='Remain Cash')
-            plt.plot(global_x[i], global_final_all_dock[i], label='Total property')
-
             plt.legend(loc='best', fontsize=17 - integer)
             plt.xticks(fontsize=17 - integer)
             plt.yticks(fontsize=17 - integer)
             plt.ylabel("Money", fontsize=17 - integer)
             plt.xlabel("Days", fontsize=17 - integer)
-            plt.title("Best Rate Range In Week Strategy with " + str(round(stop_rate, 2)) + " Stop Rate",
+            plt.title("Week Strategy with " + str(round(stop_rate, 2)) + " Stop Rate",
                       fontsize=17 - integer)
             plt.grid()
             i += 1
@@ -434,12 +446,12 @@ class fund_script:
 
 
 if __name__ == '__main__':
-    way = fund_script("270042", "2019-07-01", "2021-10-27", 10000)
+    way = fund_script("004241", "2016-07-01", "2021-10-27", 10000)
     context = way.get_dock()
     # pd.set_option('display.max_rows',None)
     print(context)
-    # way.rate_strategy(0.02, 0.3, False, True)
+    # way.rate_strategy(0.025, 0.25, True, True)
     # way.week_strategy([1, 3, 5], 0.2, False, True)
 
-    way.FindDayRangeInWeekStrategy([[1], [2], [3], [4], [5]], 0.18, 0.4, 0.02)
-    way.FindRateRangeInRateStrategy(0.02, 0.1, 0.01, 0.18, 0.4, 0.02)
+    # way.FindDayRangeInWeekStrategy([[1], [2], [3], [4], [5]], 0.18, 0.4, 0.02)
+    way.FindRateRangeInRateStrategy(0.01, 0.06, 0.005, 0.18, 0.4, 0.02)
