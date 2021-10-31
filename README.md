@@ -11,12 +11,12 @@ Thanks for paying attention to this code, which has the following functions:
     You can set your rate and rate step to have a look
 
 ## How use it?
-    fund_script(fund_code, start_time, end_time, all_cash_you_have)
-        fund_script.rate_strategy(invest_rate,  stop_rate,  if_print_record,    if_draw_chart)
-        fund_script.week_strategy(days_combine_array,  stop_rate,  if_print_record,    if_draw_chart)
+fund_script(fund_code, start_time, end_time, all_cash_you_have)
+fund_script.rate_strategy(invest_rate,  stop_rate,  if_print_record,    if_draw_chart)
+fund_script.week_strategy(days_combine_array,  stop_rate,  if_print_record,    if_draw_chart)
     compare part you can see notes:
-        fund_script.FindDayRangeInWeekStrategy()
-        fund_script.FindRateRangeInRateStrategy()
+fund_script.FindDayRangeInWeekStrategy()
+fund_script.FindRateRangeInRateStrategy()
 
 
 It will help you to decide how to invest in your fund, 
@@ -26,20 +26,21 @@ and I will write a new function to help you how to choose appropriate fund in th
 
 ----------------------------------
 
-## 2021/10/31
 Strange phenomena occurred during simulation verification:
 1.Reducing investment funds yields the most (this is not consistent with the theme) :Preset scale setting too high
 2.It is necessary to modify the relationship between the sales batch of the profit stop point and the profit stop ratio
 
-### code:004241 中欧时代先锋：
-invest rate:     
-stop rate:      
-
+### 2021/10/31  code:004241 中欧时代先锋：
+invest rate:    0.015
+stop rate:      0.3
+![img.png](img.png)
+![img_1.png](img_1.png)
 
 ### code:007301 国联安中证半导体ETF联接:
-invest rate:     
-stop rate:  
-
+invest rate:    0.01
+stop rate:      0.2/0.18
+![img_2.png](img_2.png)
+![img_3.png](img_3.png)
 
 ### code:320014 诺安沪深300指数增强:
 invest rate:     
@@ -67,7 +68,7 @@ stop rate:
 
  
 So there is a conclusion that sell batch is best in 30% when you reach your profit stop point, and invest rate is range 
-in 0.3~0.6 which is not always increasing by rate number. At last, stop rate is always in 0.24~0.32 depends on market.
+in 0.3 to 0.6 which is not always increasing by rate number. At last, stop rate is always in 0.24 to 0.32 depends on market.
 
 
 

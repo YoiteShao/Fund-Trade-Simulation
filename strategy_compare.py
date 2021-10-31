@@ -238,7 +238,7 @@ class fund_script:
 
             else:
                 #   If rise too high , change preset price
-                if (today_price - curr_price) / curr_price >= invest_rate * 2.5:
+                if (today_price - curr_price) / curr_price >= invest_rate * 2:
                     curr_price = today_price
             #   Multiplied by the IMF interest rate
             cash = cash * (1 + 5.5 * 1e-5)
@@ -446,12 +446,12 @@ class fund_script:
 
 
 if __name__ == '__main__':
-    way = fund_script("004241", "2016-07-01", "2021-10-27", 10000)
+    way = fund_script("007301", "2016-07-01", "2021-10-27", 10000)
     context = way.get_dock()
     # pd.set_option('display.max_rows',None)
     print(context)
-    # way.rate_strategy(0.025, 0.25, True, True)
+    way.rate_strategy(0.01, 0.18, True, True)
     # way.week_strategy([1, 3, 5], 0.2, False, True)
 
     # way.FindDayRangeInWeekStrategy([[1], [2], [3], [4], [5]], 0.18, 0.4, 0.02)
-    way.FindRateRangeInRateStrategy(0.01, 0.06, 0.005, 0.18, 0.4, 0.02)
+    # way.FindRateRangeInRateStrategy(0.01, 0.06, 0.005, 0.18, 0.4, 0.02)
