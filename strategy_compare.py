@@ -45,7 +45,7 @@ def stop_strategy_enhanced(all_single_money, fund_counts, today_price, stop_rate
             if fund_counts[-1] >= 0:
                 return math.floor(sell_count * 0.3)
             else:
-                return math.floor(sell_count * (((invest_value - all_single_money) / all_single_money) - 0.3))
+                return math.floor(sell_count * (((invest_value - all_single_money) / all_single_money) - stop_rate))
     else:
         return 0
 
@@ -446,11 +446,11 @@ class fund_script:
 
 
 if __name__ == '__main__':
-    way = fund_script("007301", "2016-07-01", "2021-10-27", 10000)
+    way = fund_script("002379", "2021-03-09", "2021-11-01", 1465)
     context = way.get_dock()
     # pd.set_option('display.max_rows',None)
     print(context)
-    way.rate_strategy(0.01, 0.18, True, True)
+    way.rate_strategy(0.015, 0.2, True, False)
     # way.week_strategy([1, 3, 5], 0.2, False, True)
 
     # way.FindDayRangeInWeekStrategy([[1], [2], [3], [4], [5]], 0.18, 0.4, 0.02)
