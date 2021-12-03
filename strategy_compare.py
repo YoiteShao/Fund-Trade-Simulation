@@ -377,8 +377,8 @@ class fund_script:
             invest_rate = invest_start
             while invest_rate <= invest_end + invest_step:
                 global_x[i].append(invest_rate)
-                global_final_value_dock[i].append(self.rate_strategy(invest_rate, stop_rate, False, False)[0])
-                global_final_cash_dock[i].append(self.rate_strategy(invest_rate, stop_rate, False, False)[1])
+                global_final_value_dock[i].append(self.rate_strategy(invest_rate, stop_rate)[0])
+                global_final_cash_dock[i].append(self.rate_strategy(invest_rate, stop_rate)[1])
                 invest_rate += invest_step
 
             # print("subplots:", subplots[0], subplots[1], i + 1)
@@ -424,8 +424,8 @@ class fund_script:
         while stop_rate <= stop_end + stop_step:
             for item in days_list:
                 global_x[i].append(str(item))
-                global_final_value_dock[i].append(self.week_strategy(item, stop_rate, False, False)[0])
-                global_final_cash_dock[i].append(self.week_strategy(item, stop_rate, False, False)[1])
+                global_final_value_dock[i].append(self.week_strategy(item, stop_rate)[0])
+                global_final_cash_dock[i].append(self.week_strategy(item, stop_rate)[1])
 
             plt.subplot(subplots[0], subplots[1], i + 1)
             plt.plot(global_x[i], global_final_value_dock[i], label='Final Value')
@@ -446,12 +446,12 @@ class fund_script:
 
 
 if __name__ == '__main__':
-    way = fund_script("002379", "2021-03-09", "2021-11-01", 1465)
+    way = fund_script("320014", "2017-11-09", "2021-11-09", 10000)
     context = way.get_dock()
     # pd.set_option('display.max_rows',None)
     print(context)
-    way.rate_strategy(0.015, 0.2, True, False)
-    # way.week_strategy([1, 3, 5], 0.2, False, True)
+    way.rate_strategy(0.015, 0.2)
+    # way.week_strategy([1, 3, 5], 1, True)
 
     # way.FindDayRangeInWeekStrategy([[1], [2], [3], [4], [5]], 0.18, 0.4, 0.02)
     # way.FindRateRangeInRateStrategy(0.01, 0.06, 0.005, 0.18, 0.4, 0.02)
